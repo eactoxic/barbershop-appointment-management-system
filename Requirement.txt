@@ -1,0 +1,129 @@
+Barbershop Appointment Management System
+
+1. Project Description
+
+This database is designed for a barbershop chain with multiple branches. Each branch has barbers and chairs. Customers can book appointments, select one or more services (e.g., haircut, beard trim), and make payments. The system also keeps track of products used during an appointment.
+
+2. Tables
+
+Branch Keeps information about each branch (ID, Name, City, Address).
+
+Chair Represents chairs available in a branch (ID, ChairNo, Branch_ID -> Branch). Each chair belongs to exactly one branch.
+
+Barber Employee information (ID, Name, Surname, Phone, HireDate, Salary, Branch_ID -> Branch, Boss_ID -> Barber). Boss_ID can be NULL for the top-level manager.
+
+BarberShift Barber working schedule (ID, DayOfWeek, StartTime, EndTime, Barber_ID -> Barber).
+
+Customer Customer data (ID, Name, Surname, Phone, Email, DateOfBirth, RegisterDate).
+
+Service Services offered by the barbershop (ID, Name, Price).
+
+Product Products that may be used during services (ID, Name, Brand, Price).
+
+Appointment Stores bookings (ID, StartDateTime, Status, Notes, Customer_ID -> Customer, Barber_ID -> Barber, Chair_ID -> Chair).
+
+AppointmentService Many-to-many table between Appointment and Service (Appointment_ID, Service_ID as composite PK/FK). Includes Price and DurationTime (stored as minutes) so the appointment keeps the exact values used at that time.
+
+ProductUsage Many-to-many table between Appointment and Product (Product_ID, Appointment_ID as composite PK/FK). Used to track which products were used in a specific appointment.
+
+Payment Payment details linked to an appointment (ID, Amount, Currency, PaymentDate, PaymentMethod, Status, Appointment_ID -> Appointment).
+
+3. Relationships
+
+Branch -> Chair (1:N)
+Branch -> Barber (1:N)
+Barber -> Barber (self-reference for boss)
+Barber -> BarberShift (1:N)
+Customer -> Appointment (1:N)
+Barber -> Appointment (1:N)
+Chair -> Appointment (1:N)
+Appointment <-> Service (M:N through AppointmentService)
+Appointment <-> Product (M:N through ProductUsage)
+Appointment -> Payment (1:1)
+
+4. Business Rules
+
+For Barber:
+- Salary cannot be negative
+- Salary cannot be more than 10000
+- Cannot increase salary more than 20% at once
+- Cannot earn more than boss
+
+For Appointment:
+- Cannot change a completed appointment
+- Cannot reactivate a cancelled appointment
+- Completing sets payment to Paid
+- Cancelling refunds the payment
+- Cannot delete completed appointments
+- Deleting removes related services, products, payment
+
+For Scheduling:
+- Barber must work on that day (check shift)
+- No double booking within 60 minutes
+- Chair must be free
+
+5. Procedures
+
+CreateAppointmentWithValidation Creates a new appointment with validation checks. It verifies that the customer, barber, chair, and service exist, uses a cursor to detect time conflicts (double-booking), then inserts the Appointment, inserts related record(s) in AppointmentService, and creates the initial Payment record.
+
+CalculateBarberEarnings Iterates through barbers using a cursor and calculates earnings from Completed appointments. If a barber has more than 2 completed appointments in the period, a 10% bonus is added.
+
+GenerateMonthlyReport Takes month and year as parameters. Uses a cursor to iterate through appointments, counts Completed/Cancelled appointments, calculates revenue, and finds the most popular service for that month.
+	
+6. Triggers
+
+TR_Barber_SalaryCheck
+Fires on INSERT/UPDATE on Barber. Enforces salary rules (non-negative, max 10000, max 20% raise per update) and checks that a barber's salary does not exceed their boss's salary (if Boss_ID is not NULL).
+
+TR_Appointment_StatusChange
+Fires on UPDATE of Appointment.Status. Prevents changing a Completed appointment and prevents reactivating a Cancelled appointment. Updates Payment status based on appointment status (Completed -> Paid, Cancelled -> Refunded).
+
+TR_Appointment_Cascade / TR_Appointment_PreventDelete
+Fires on DELETE of Appointment. Prevents deleting Completed appointments. When deletion is allowed, it removes related records (AppointmentService, ProductUsage, Payment) to keep data consistent.
+
+7. Sample Data
+
+- 5 branches (Batikent Merkez, Kardelen, Koru, Tulumtas, Gimat)
+- 6 chairs
+- 6 barbers (Ahmet is the boss)
+- 6 shifts
+- 6 customers
+- 6 services (Haircut 250 TRY, Beard Trim 150, Shaving 200, Hair Coloring 500, Hair Wash 100, Kids Haircut 180)
+- 6 products
+- 7 appointments (4 completed, 1 cancelled, 2 scheduled)
+- 9 appointment-service records
+- 6 product usage records
+- 6 payments
+
+8. Notes
+
+- Oracle: salary validation uses COMPOUND TRIGGER to avoid mutating-table issue; uses ROWNUM for 11g compatibility.
+- MS SQL: delete logic uses INSTEAD OF DELETE trigger; SET DATEFIRST 1 makes Monday = 1.
+- Both versions include safe DROP statements, cursors in procedures, and test scripts.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
